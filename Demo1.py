@@ -24,4 +24,4 @@ itemlist = RDK.ItemList()
 robot = RDK.ItemUserPick('Select a robot', ITEM_TYPE_ROBOT)
 print(itemlist)
 
-robot.MoveJ([0.000, 37, 0.000, -0.000, 0.000, -0.000])
+robot.MoveJ([0.000, 37, 0.000, -0.000, -90.000, -0.000])
