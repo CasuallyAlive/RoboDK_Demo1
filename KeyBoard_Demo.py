@@ -12,6 +12,7 @@ RDK = Robolink()
 # Arrow keys program example
 
 # get a robot
+LEFT_K, RIGHT_K, UP_K, DOWN_K = (None, None, None, None)
 robot = RDK.Item('', ITEM_TYPE_ROBOT)
 if not robot.Valid():
     print("No robot in the station. Load a robot first, then run this program.")
@@ -20,48 +21,59 @@ if not robot.Valid():
 
 print('Using robot: %s' % robot.Name())
 print('Use the arrows (left, right, up, down), Q and A keys to move the robot')
-print('Note: This works on console mode only, you must run the PY file separately')
-
+print("Press ESC to exit the program. Pressing 'R' resets the robots position.")
 def exit_program(robot):
     robot.MoveJ([0.000, 0.000, 0.000, -0.000, -90.000, -0.000])
+    quit()
 
 # define the move increment
 move_speed = 10
+import sys
 
-import getch
+stdin_f = None
+if os.environ.get('OS', '') == 'Windows_NT':
+    import msvcrt as stdin_f
+    LEFT_K, RIGHT_K, UP_K, DOWN_K = ([224,75], [224,77], [224,72], [224,80])
+else:
+    import getch as stdin_f
+    LEFT_K, RIGHT_K, UP_K, DOWN_K = ([27,91,68], [27,91,67], [27,91,65], [27,91,66])
 
-prevKey = -1
 while True:
-    key = (ord(getch.getch()))
+    poll = []
+    doesNotRepeat = True
+    
+    # Validate key down by polling console standard input
+    while doesNotRepeat:
+        temp = (ord(stdin_f.getch()))
+        doesNotRepeat = not temp in poll 
+        if(doesNotRepeat):
+            poll.append(temp)    
+    key = poll
     move_direction = [0, 0, 0]
     # print(key)
-    if not(prevKey == 68) and key == 68:
-        prevKey = 68
+    if key == LEFT_K:
         print('arrow left (Y-)')
         move_direction = [0, -1, 0]
-    elif not(prevKey == 67) and key == 67:
-        prevKey = 67
+    elif key == RIGHT_K:
         print('arrow right (Y+)')
         move_direction = [0, 1, 0]
-    elif not(prevKey == 65) and key == 65:
-        prevKey = 65
+    elif key == UP_K:
         print('arrow up (X-)')
         move_direction = [-1, 0, 0]
-    elif not(prevKey == 66) and key == 66:
-        prevKey = 66
+    elif key == DOWN_K:
         print('arrow down (X+)')
         move_direction = [1, 0, 0]
-    elif not(prevKey == 113) and key == 113:
-        prevKey = 113
+    elif key == [113]:
         print('Q (Z+)')
         move_direction = [0, 0, 1]
-    elif not(prevKey == 97) and key == 97:
-        prevKey = 97
+    elif key == [114]:
+        print('R (reset)')
+        robot.MoveJ([0.000, 0.000, 0.000, -0.000, -90.000, -0.000])
+    elif key == [97]:
         print('A (Z-)')
         move_direction = [0, 0, -1]
-    elif not(prevKey == 27) and key == 27:
-        prevKey = 27
-        print('Exiting program')
+    elif key == [27]:
+        print('Exiting Program')
         exit_program(robot=robot)
         break
 
@@ -89,9 +101,16 @@ while True:
     if len(new_robot_joints.tolist()) < 6:
         print("No robot solution!! The new position is too far, out of reach or close to a singularity")
         continue
-
+    
     # calculate the robot configuration for the new joints
     new_robot_config = robot.JointsConfig(new_robot_joints)
+
+    # Check if we can do a joint movement (check for collisions)
+    issues = robot.MoveJ_Test(robot_joints, new_robot_joints)
+    if not issues == 0:
+        # Skip this point
+        print(f"Skipping movement to: {str(new_robot_joints)}. Collision Detected!")
+        continue
 
     # move the robot joints to the new position
     robot.MoveJ(new_robot_joints)
